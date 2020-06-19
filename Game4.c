@@ -470,6 +470,11 @@ word get_ceiling_yy(byte lane)
   return (lanes[lane].ypos + lanes[lane].height) * 8 + 16;
 }
 
+word get_limit_yy(byte lane)
+{
+  return (lanes[lane].ypos);
+}
+
 
 //This contols where the Screen is positioned. In relation to the player.
 void set_scroll_pixel_yy(int yy)
@@ -655,13 +660,34 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
 {
   
   
+  
+  //Min and Max X-cordaiante ranges for the new lane
   int gapMin;
   int gapMax;
-  int lanespot;
+  
+  //Min and Max x-Cordinate ranges for the previous lane.
+  int oldgapMin;
+  int oldgapMax;
+  
+ 
+
+ // int count;
+  //int limit;
+  
+  
+
+  
   
   gapMin = (lanes[(actor->lane)+1].gap * 16)+8;
   gapMax = (lanes[(actor->lane)+1].gap * 16)+32;
-  lanespot = lanes[actor->lane].gap;
+  
+  oldgapMin = (lanes[actor->lane].gap *16)+8;
+  oldgapMax = (lanes[actor->lane].gap *16)+32;
+  
+  
+  
+  
+
 
   switch (actor->state) 
   {    
@@ -686,16 +712,20 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
         actor->state = WALKING;
       } 
       
-      //The player will attempt to Rise by pressing "SPACE / A"
-      else if (joystick & PAD_A) 
+      //The player will attempt to Rise by pressing UP
+      else if (joystick & PAD_UP) 
       {
        
         //You can only rise if you're within a certain range in the gaps.
-        if(actor->x >= gapMin && actor->x <= gapMax
-)
+        if(actor->x >= gapMin && actor->x <= gapMax)
         {
           //Once you're in that range, you enter the RISING state.
-          actor->state = RISING;
+          
+          //Here's a small boost to help you get started.
+          actor->yy++;
+          actor->state = RISING; //Now go rise Human!
+          
+       
        
           
         }
@@ -708,7 +738,38 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
        
        
         
-      } 
+      }
+      
+      //You can go back down the gap if you felt you timed your "Rise" wrong.
+      else if (joystick & PAD_DOWN)
+      {
+        
+        //Same as with UP: You can only Rise if you're in that range.
+        if(actor->x >= oldgapMin && actor->x <= oldgapMax)
+        {
+            //You cannot fall through the lowest lane...
+            if (actor->lane == 0)
+            {
+              
+              actor->yy = actor->yy;
+              actor->state = WALKING;
+            }
+          
+           
+            //Otherwise, go to the RISING state.
+            else
+            {
+              //A small push to ensure you're falling.
+              actor->yy--;
+              actor->state = RISING; 
+            }
+        }
+        
+        
+         
+        
+      }
+      
       
       //No input? Just stand still.
       else 
@@ -726,7 +787,7 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
     //The player is "rising" through the gaps.  
     case RISING:
       
-      //You can only go up. No going down at all.
+      //If you hit up, you'll go up.
       if (joystick & PAD_UP)
       {
         
@@ -736,17 +797,67 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
           { 
            
           
-            actor->lane++;
-            actor->state = WALKING;
+            actor->lane++; //New Lane. Go update it.
+            actor->state = WALKING; //
            
             
           }
         
+         //If you go back to the lane you were previously on, you'll go back to walking state.
+         else if (actor->yy == get_lane_yy(actor->lane))
+         {
+           actor->state = WALKING;
+         }
+        
+       
+        
+        //If you haven't hit a new lane yet, just keep track of it.   
         else
         {
-           actor->yy++;
-           actor->state = RISING;
+           actor->yy++; //Incriment counter
+           actor->state = RISING; //Keep going up...
+          
+       
         }
+          
+      }
+      
+      //If you hit down, you can go downwards while rising.
+      else if (joystick & PAD_DOWN)
+      {
+        
+          //If you hit the previous lane, then adjust the count so you can move on that lane properly
+          if(actor->yy == get_lane_yy(actor->lane -1))
+          {
+            
+           
+              //If you're on the bottom floor, don't go past it.
+               if (actor->lane == 0)
+               {
+                 actor->state = WALKING;
+               }
+      
+               
+               //Indiacate you're in a new lane and switch states.
+               actor->lane--;
+               actor->state = WALKING;
+            
+              
+              
+             
+          }
+        
+       
+          else
+          {
+      
+            //If you haven't hit the old lane yet, keep track of the Human..
+            actor->yy--; //Keep going down...
+            actor->state = RISING; //You're still in the rising state
+          }
+        
+        
+        
           
       }
   
@@ -757,6 +868,7 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
       {
         actor->state = RISING;
       }
+      
       break;
     
     //This case is exclusive to the Cars:
@@ -854,12 +966,15 @@ void play_scene()
 {
   
   char dis[32]; //Quick Check to test out a few things:
+  //char test[32]; //Another check for testing purposes;
   
   byte i; //index note
+  // byte limit;
   bool gameOver; //A check to see how the game ended.
   
   
  
+  
   gameOver = false;
   
   // initialize actors array  
@@ -873,8 +988,11 @@ void play_scene()
   actors[0].lane = 0;
   actors[0].yy = get_lane_yy(0);
   
+  
   // put the player at bottom
   set_scroll_pixel_yy(0);
+  
+  //limit = get_limit_yy(actors->lane);
   
   // draw initial view of level into nametable
   drawLevel();
@@ -885,6 +1003,7 @@ void play_scene()
   while (actors[0].lane != MAX_LANES-1 && gameOver == false)
  {
      
+    //limit = get_lane_yy(actors->lane);
     //Quick Check to see if the lane counter is going up.
     // - Can be subbed for other tests:
     
@@ -898,8 +1017,12 @@ void play_scene()
     //vrambuf_put(NTADR_A(2,208), dis, 32);
     
     //memset(dis,0,sizeof(dis));
-    //sprintf(dis,"Actor-Lane: %d",actors[0].lane);
-    //vrambuf_put(NTADR_A(12,200),dis,32);
+    //sprintf(dis,"Actor-Y: %d",actors[0].yy);
+    //vrambuf_put(NTADR_A(12,208),dis,32);
+    
+    //memset(dis,0,sizeof(dis));
+    //sprintf(test,"Lane: %d",actors[0].lane);
+    //vrambuf_put(NTADR_A(12,200),test,32);
     
     // flush VRAM buffer (waits next frame)
     vrambuf_flush();
