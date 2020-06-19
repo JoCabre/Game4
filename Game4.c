@@ -308,20 +308,6 @@ void setLanes()
  
 } //End of setLanes()
 
-// is this x (pixel) position within the gap <gap>?
-bool is_in_gap(byte x, byte gap) 
-{
-  if (gap) 
-  {
-    byte x1 = gap*16 + 4;
-    return (x > x1 && x < x1+GAP_SIZE*8-4);
-  } 
-  
-  else 
-  {
-    return false;
-  }
-}
 
 // create actors on a given lane, if slot is empty
 // Declearing it here so we can define it later in a different segment.
@@ -617,6 +603,7 @@ void draw_actors(byte i)
       
     case RISING:
       meta = dir ? playerLStand : playerRStand;
+      break;
   }
   
   x = a->x;
@@ -672,8 +659,8 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
   int gapMax;
   int lanespot;
   
-  gapMin = (lanes[actor->lane+1].gap*16)+8;
-  gapMax = (lanes[actor->lane+1].gap*16)+32;
+  gapMin = (lanes[(actor->lane)+1].gap * 16)+8;
+  gapMax = (lanes[(actor->lane)+1].gap * 16)+32;
   lanespot = lanes[actor->lane].gap;
 
   switch (actor->state) 
@@ -692,7 +679,7 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
       } 
       
       //Go Right if you hit Right
-      else if (joystick & PAD_RIGHT) 
+      else if (joystick &  PAD_RIGHT) 
       {
         actor->x = actor->x +2;
         actor->dir = 0; //See above
@@ -704,7 +691,8 @@ void move_actor(struct Actor* actor, byte joystick, bool scroll)
       {
        
         //You can only rise if you're within a certain range in the gaps.
-      if(actor->x >= gapMin || actor->x <= gapMax)
+        if(actor->x >= gapMin && actor->x <= gapMax
+)
         {
           //Once you're in that range, you enter the RISING state.
           actor->state = RISING;
@@ -869,7 +857,7 @@ void play_scene()
   
   byte i; //index note
   bool gameOver; //A check to see how the game ended.
-  ;
+  
   
  
   gameOver = false;
